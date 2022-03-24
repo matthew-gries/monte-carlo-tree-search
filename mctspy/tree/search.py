@@ -1,5 +1,11 @@
 import time
 import multiprocessing
+
+def _simulate(mctsobj: "MonteCarloTreeSearch"):
+        v = mctsobj._tree_policy()
+        reward = v.rollout()
+        v.backpropagate(reward)
+
 class MonteCarloTreeSearch(object):
 
     def __init__(self, node):
@@ -27,28 +33,18 @@ class MonteCarloTreeSearch(object):
 
         """
 
-        def simulate():  
-            v = self._tree_policy()
-            reward = v.rollout()
-            v.backpropagate(reward)
 
-        if simulations_number is None :
+        if simulations_number is None:
             assert(total_simulation_seconds is not None)
             end_time = time.time() + total_simulation_seconds
             while time.time() < end_time:
                 v = self._tree_policy()
                 reward = v.rollout()
                 v.backpropagate(reward)
-        else :
-            # make this async
-            # for _ in range(0, simulations_number):            
-            #     v = self._tree_policy()
-            #     reward = v.rollout()
-            #     v.backpropagate(reward)
-            pool = multiprocessing.Pool(4)
-
-            running = [pool.apply_async(simulate) for _ in range(simulations_number)]
-            _ = [f.get() for f in running]
+        else:
+            with multiprocessing.Pool(multiprocessing.cpu_count() - 1) as pool:
+                running = [pool.apply_async(_simulate, args=[self]) for _ in range(simulations_number)]
+                _ = [f.get() for f in running]
 
         # to select best child go for exploitation only
         return self.root.best_child(c_param=0.)
